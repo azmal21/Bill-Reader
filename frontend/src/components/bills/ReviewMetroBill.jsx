@@ -49,7 +49,12 @@ const ReviewMetroBill = ({ billData, onSaveSuccess, onCancel }) => {
     setIsSaving(true);
     setError('');
     try {
-      const result = await saveMetroInvoice(reviewData);
+      const payload = {
+        ...reviewData,
+        itemCount: reviewData.items ? reviewData.items.length : 0,
+      };
+      console.log('Frontend: data.parsedData.itemCount before calling saveMetroInvoice:', payload.itemCount);
+      const result = await saveMetroInvoice(payload);
       if (result.success) {
         if (onSaveSuccess) onSaveSuccess();
       } else {

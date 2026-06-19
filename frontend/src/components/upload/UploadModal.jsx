@@ -68,6 +68,7 @@ const UploadModal = ({ show, uploadType, onClose, onUploadSuccess }) => {
       if (data.success) {
         console.log(`========== ${uploadType.toUpperCase()} RAW TESSERACT OCR TEXT ==========`);
         console.log(data.rawText || data.tesseractText);
+        console.log("Item Count:", data.parsedData?.itemCount);
         console.log(`========== ${uploadType.toUpperCase()} EXTRACTION JSON ==========`);
         console.log(JSON.stringify(data.billData || data.parsedData, null, 2));
 
@@ -83,7 +84,7 @@ const UploadModal = ({ show, uploadType, onClose, onUploadSuccess }) => {
         } else {
           onUploadSuccess(data.billData || data.parsedData);
         }
-        
+
         resetUploadState();
         onClose();
       } else {

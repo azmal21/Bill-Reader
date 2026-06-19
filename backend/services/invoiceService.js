@@ -72,6 +72,7 @@ function sanitizeAndValidate(invoice, items) {
   sanitizedInvoice.supplier_address = cleanString(invoice.supplier_address || invoice.storeAddress);
   sanitizedInvoice.pan_number = cleanString(invoice.pan_number || invoice.panNumber);
   sanitizedInvoice.state = cleanString(invoice.state);
+  sanitizedInvoice.item_count = invoice.item_count ?? invoice.itemCount ?? (items ? items.length : 0);
 
   // Items Sanitization
   const sanitizedItems = (items || []).map((item, idx) => {
@@ -149,8 +150,8 @@ async function saveInvoiceToDB(rawInvoice, rawItems) {
     const invoiceQuery = `
       INSERT INTO invoices (
         vendor_name, invoice_number, invoice_date, gst_number, subtotal, total_tax, grand_total, raw_ocr_text,
-        customer_name, customer_code, supplier_name, supplier_address, pan_number, state
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        customer_name, customer_code, supplier_name, supplier_address, pan_number, state, item_count
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *;
     `;
     const invoiceValues = [
@@ -167,7 +168,8 @@ async function saveInvoiceToDB(rawInvoice, rawItems) {
       invoice.supplier_name,
       invoice.supplier_address,
       invoice.pan_number,
-      invoice.state
+      invoice.state,
+      invoice.item_count
     ];
 
     const invoiceResult = await client.query(invoiceQuery, invoiceValues);
@@ -235,7 +237,7 @@ async function getAllInvoicesFromDB() {
   const query = `
     SELECT id, invoice_number, invoice_date, customer_name, customer_code,
            supplier_name, supplier_address, gst_number, pan_number, state,
-           grand_total, created_at, vendor_name, subtotal, total_tax, raw_ocr_text
+           grand_total, created_at, vendor_name, subtotal, total_tax, raw_ocr_text, item_count
     FROM invoices
     ORDER BY created_at DESC;
   `;
@@ -275,11 +277,144 @@ async function deleteInvoiceFromDB(id) {
   return result.rowCount > 0;
 }
 
+/**
+ * Saves a validated Metro invoice and its items to PostgreSQL (metro_invoices table).
+ */
+async function saveMetroInvoiceToDB(rawInvoice, rawItems) {
+  const client = await pool.connect();
+  try {
+    const { invoice, items, validationErrors } = sanitizeAndValidate(rawInvoice, rawItems);
+
+    console.log(`Database layer: inserting into metro_invoices. item_count = ${invoice.item_count}`);
+
+    if (!invoice.invoice_number) {
+      throw new Error("Invoice number is required to save.");
+    }
+
+    await client.query('BEGIN');
+
+    const invoiceQuery = `
+      INSERT INTO metro_invoices (
+        invoice_number, invoice_date, customer_name, customer_code,
+        supplier_name, supplier_address, gst_number, pan_number, state,
+        grand_total, item_count
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *;
+    `;
+    const invoiceValues = [
+      invoice.invoice_number,
+      invoice.invoice_date,
+      invoice.customer_name,
+      invoice.customer_code,
+      invoice.supplier_name,
+      invoice.supplier_address,
+      invoice.gst_number,
+      invoice.pan_number,
+      invoice.state,
+      invoice.grand_total,
+      invoice.item_count
+    ];
+
+    const invoiceResult = await client.query(invoiceQuery, invoiceValues);
+    const savedInvoice = invoiceResult.rows[0];
+
+    const savedItems = [];
+    for (const item of items) {
+      const itemQuery = `
+        INSERT INTO metro_invoice_items (
+          invoice_id, article_code, article_name, hsn_code, qty, pack_size,
+          net_amount, discount_amount, net_discount_amount, tax_percentage, tax_amount, total_amount_including_gst
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *;
+      `;
+      const itemValues = [
+        savedInvoice.id,
+        item.article_code,
+        item.article_name,
+        item.hsn_code,
+        item.quantity,
+        item.pack_size,
+        item.net_amount,
+        item.discount_amount,
+        item.taxable_amount,
+        item.tax_percent,
+        item.tax_amount,
+        item.total_amount
+      ];
+      const itemResult = await client.query(itemQuery, itemValues);
+      savedItems.push({
+        ...itemResult.rows[0],
+        status: 'valid'
+      });
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      invoice: savedInvoice,
+      items: savedItems,
+      validation_errors: validationErrors
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Database transaction rolled back:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Retrieves all saved Metro invoices.
+ */
+async function getAllMetroInvoicesFromDB() {
+  const query = `
+    SELECT id, invoice_number, invoice_date, customer_name, customer_code,
+           supplier_name, supplier_address, gst_number, pan_number, state,
+           grand_total, created_at, item_count
+    FROM metro_invoices
+    ORDER BY created_at DESC;
+  `;
+  const result = await pool.query(query);
+  return result.rows;
+}
+
+/**
+ * Retrieves a single Metro invoice header by ID.
+ */
+async function getMetroInvoiceByIdFromDB(id) {
+  const query = `SELECT * FROM metro_invoices WHERE id = $1;`;
+  const result = await pool.query(query, [id]);
+  return result.rows[0] || null;
+}
+
+/**
+ * Retrieves all items for a given Metro invoice.
+ */
+async function getMetroInvoiceItemsFromDB(invoiceId) {
+  const query = `SELECT * FROM metro_invoice_items WHERE invoice_id = $1 ORDER BY id ASC;`;
+  const result = await pool.query(query, [invoiceId]);
+  return result.rows;
+}
+
+/**
+ * Deletes a Metro invoice and all its cascade-referenced items.
+ */
+async function deleteMetroInvoiceFromDB(id) {
+  const result = await pool.query('DELETE FROM metro_invoices WHERE id = $1 RETURNING *;', [id]);
+  return result.rowCount > 0;
+}
+
 module.exports = {
   sanitizeAndValidate,
   saveInvoiceToDB,
   getAllInvoicesFromDB,
   getInvoiceByIdFromDB,
   getInvoiceItemsFromDB,
-  deleteInvoiceFromDB
+  deleteInvoiceFromDB,
+  saveMetroInvoiceToDB,
+  getAllMetroInvoicesFromDB,
+  getMetroInvoiceByIdFromDB,
+  getMetroInvoiceItemsFromDB,
+  deleteMetroInvoiceFromDB
 };

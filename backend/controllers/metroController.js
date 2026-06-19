@@ -11,11 +11,11 @@ const { preprocessImage } = require('../utils/imagePreprocessor');
 const { performOCR, getActiveJobsCount } = require('../services/ocrService');
 const { parseMetroInvoice } = require('../utils/metroParser');
 const {
-  saveInvoiceToDB,
-  getAllInvoicesFromDB,
-  getInvoiceByIdFromDB,
-  getInvoiceItemsFromDB,
-  deleteInvoiceFromDB
+  saveMetroInvoiceToDB,
+  getAllMetroInvoicesFromDB,
+  getMetroInvoiceByIdFromDB,
+  getMetroInvoiceItemsFromDB,
+  deleteMetroInvoiceFromDB
 } = require('../services/invoiceService');
 
 /**
@@ -456,7 +456,7 @@ const uploadMetroInvoice = async (req, res) => {
  */
 const getMetroInvoices = async (req, res) => {
   try {
-    const invoices = await getAllInvoicesFromDB();
+    const invoices = await getAllMetroInvoicesFromDB();
     return res.status(200).json({ success: true, invoices });
   } catch (err) {
     console.error('❌ Error in getMetroInvoices:', err);
@@ -473,11 +473,11 @@ const getMetroInvoices = async (req, res) => {
 const getMetroInvoiceById = async (req, res) => {
   const { id } = req.params;
   try {
-    const invoice = await getInvoiceByIdFromDB(id);
+    const invoice = await getMetroInvoiceByIdFromDB(id);
     if (!invoice) {
       return res.status(404).json({ success: false, error: 'Metro invoice not found.' });
     }
-    const items = await getInvoiceItemsFromDB(id);
+    const items = await getMetroInvoiceItemsFromDB(id);
     return res.status(200).json({ success: true, invoice, items });
   } catch (err) {
     console.error('❌ Error in getMetroInvoiceById:', err);
@@ -493,6 +493,7 @@ const getMetroInvoiceById = async (req, res) => {
  */
 const saveMetroInvoice = async (req, res) => {
   console.log('Database Save: START');
+  console.log('Backend route received body itemCount:', req.body.itemCount);
   console.time('Database Save');
   const dbStart = Date.now();
   try {
@@ -507,11 +508,13 @@ const saveMetroInvoice = async (req, res) => {
       panNumber,
       state,
       grandTotal,
+      itemCount,
       items,
       // also accept snake_case payload keys
       vendor_name,
       subtotal,
       total_tax,
+      item_count,
     } = req.body;
 
     const invoiceHeader = {
@@ -528,9 +531,10 @@ const saveMetroInvoice = async (req, res) => {
       supplier_address: supplierAddress || req.body.supplier_address,
       pan_number: panNumber || req.body.pan_number,
       state: state || req.body.state,
+      item_count: itemCount || item_count,
     };
 
-    const savedData = await saveInvoiceToDB(invoiceHeader, items);
+    const savedData = await saveMetroInvoiceToDB(invoiceHeader, items);
     console.timeEnd('Database Save');
     console.log('Database Save: END');
     console.log(`Database Save Duration: ${Date.now() - dbStart}ms`);
@@ -552,7 +556,7 @@ const saveMetroInvoice = async (req, res) => {
 const deleteMetroInvoice = async (req, res) => {
   const { id } = req.params;
   try {
-    const success = await deleteInvoiceFromDB(id);
+    const success = await deleteMetroInvoiceFromDB(id);
     if (!success) {
       return res.status(404).json({ success: false, error: 'Invoice not found.' });
     }

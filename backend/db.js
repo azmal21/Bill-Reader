@@ -41,6 +41,7 @@ pool.query(`
     pan_number TEXT,
     state TEXT,
     grand_total DECIMAL(10, 2) NOT NULL,
+    item_count INTEGER,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -120,7 +121,8 @@ pool.query(`
     supplier_name TEXT,
     supplier_address TEXT,
     pan_number TEXT,
-    state TEXT
+    state TEXT,
+    item_count INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS invoice_items (
@@ -157,6 +159,9 @@ pool.query(`
       ALTER COLUMN gst_number     TYPE TEXT,
       ALTER COLUMN pan_number     TYPE TEXT,
       ALTER COLUMN state          TYPE TEXT;
+      
+    ALTER TABLE metro_invoices
+      ADD COLUMN IF NOT EXISTS item_count INTEGER;
 
     ALTER TABLE metro_invoice_items
       ALTER COLUMN article_code TYPE TEXT,
@@ -168,6 +173,9 @@ pool.query(`
       ALTER COLUMN invoice_number TYPE TEXT,
       ALTER COLUMN invoice_date   TYPE TEXT,
       ALTER COLUMN gst_number     TYPE TEXT;
+
+    ALTER TABLE invoices
+      ADD COLUMN IF NOT EXISTS item_count INTEGER;
 
     ALTER TABLE invoice_items
       ALTER COLUMN article_code TYPE TEXT,

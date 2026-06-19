@@ -24,7 +24,10 @@ const parseBillItems = (bill) => {
 };
 
 const BillRow = ({ bill, handleDelete, detailRoutePrefix = "/single", billType = "restaurant" }) => {
-  const itemCount = bill.itemCount !== undefined ? bill.itemCount : parseBillItems(bill).length;
+  const itemCount = billType === 'metro' 
+    ? (bill.item_count ?? bill.itemCount ?? 0)
+    : parseBillItems(bill).length;
+
   return (
     <tr>
       <td className="col-checkbox">
