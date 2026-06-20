@@ -71,6 +71,7 @@ const MetroBillDetailsPage = ({ handleDelete }) => {
                 <th style={{ width: '60px' }}>#</th>
                 <th>Article Code</th>
                 <th>Item Name</th>
+                <th>HSN Code </th>
                 <th>Pack Size</th>
                 <th>Quantity</th>
                 <th>Net Amount</th>
@@ -84,6 +85,7 @@ const MetroBillDetailsPage = ({ handleDelete }) => {
                   <td style={{ color: '#9ca3af' }}>{idx + 1}</td>
                   <td>{item.article_code || '—'}</td>
                   <td style={{ fontWeight: 500 }}>{item.article_name || '—'}</td>
+                  <td>{item.hsn_code || '19053100'}</td>
                   <td>{item.pack_size || '—'}</td>
                   <td>{item.quantity || item.qty || '—'}</td>
                   <td>₹{parseFloat(item.net_amount || 0).toFixed(2)}</td>
@@ -94,15 +96,15 @@ const MetroBillDetailsPage = ({ handleDelete }) => {
             </tbody>
             <tfoot>
               <tr className="items-subtotal-row">
-                <td colSpan="7" style={{ textAlign: 'right', fontWeight: 600, color: '#374151' }}>Subtotal</td>
+                <td colSpan="8" style={{ textAlign: 'right', fontWeight: 600, color: '#374151' }}>Subtotal</td>
                 <td style={{ fontWeight: 700, color: '#1f2937' }}>₹{subtotal.toFixed(2)}</td>
               </tr>
               <tr className="items-tax-row">
-                <td colSpan="7" style={{ textAlign: 'right', color: '#6b7280' }}>Total Tax</td>
+                <td colSpan="8" style={{ textAlign: 'right', color: '#6b7280' }}>Total Tax</td>
                 <td style={{ color: '#6b7280' }}>₹{totalTax.toFixed(2)}</td>
               </tr>
               <tr className="items-grand-total-row">
-                <td colSpan="7" style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.05rem', color: '#1f2937' }}>Grand Total</td>
+                <td colSpan="8" style={{ textAlign: 'right', fontWeight: 700, fontSize: '1.05rem', color: '#1f2937' }}>Grand Total</td>
                 <td style={{ fontWeight: 700, fontSize: '1.05rem', color: '#059669' }}>₹{grandTotal.toFixed(2)}</td>
               </tr>
             </tfoot>

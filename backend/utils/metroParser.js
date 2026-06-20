@@ -205,20 +205,37 @@ function parseMetroInvoice(rawOcrText) {
       nameEndIdx = hsnIdx;
     }
 
-    const articleCode = tokens[artIdx];
-    const articleName = tokens.slice(artIdx + 1, nameEndIdx)
+    let articleCode = tokens[artIdx];
+    let articleName = tokens.slice(artIdx + 1, nameEndIdx)
       .join(" ")
       .replace(/^[xX\-\~]+|[xX\-\~]+$/g, '')
       .trim();
 
     let hsnCode = null;
-    if (hsnIdx !== -1) {
-      hsnCode = tokens[hsnIdx];
-    } else {
-      for (let i = nameEndIdx; i < tokens.length; i++) {
-        if (/^\d{4,10}$/.test(tokens[i]) && !tokens[i].includes('.')) {
-          hsnCode = tokens[i];
-          break;
+    
+    // User Rule: 8 digit numbers should be treated as HSN codes.
+    const eightDigitTokens = tokens.filter(t => /^\d{8}$/.test(t));
+    if (eightDigitTokens.length >= 2) {
+      // If two 8-digit numbers exist (e.g., an 8-digit article code and an 8-digit HSN), use the second as HSN.
+      hsnCode = eightDigitTokens[1];
+    } else if (eightDigitTokens.length === 1) {
+      hsnCode = eightDigitTokens[0];
+      // If the 8-digit number was mistakenly captured as the article code and there's no article name,
+      // it's an orphaned HSN line. Clear the articleCode so it's only treated as HSN.
+      if (articleCode === hsnCode && !articleName) {
+        articleCode = null;
+      }
+    }
+
+    if (!hsnCode) {
+      if (hsnIdx !== -1) {
+        hsnCode = tokens[hsnIdx];
+      } else {
+        for (let i = nameEndIdx; i < tokens.length; i++) {
+          if (/^\d{4,10}$/.test(tokens[i]) && !tokens[i].includes('.')) {
+            hsnCode = tokens[i];
+            break;
+          }
         }
       }
     }
